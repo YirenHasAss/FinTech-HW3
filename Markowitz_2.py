@@ -74,13 +74,51 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
+        
+        Sigma = self.returns[assets].cov().values
+        mu = self.returns[assets].mean().values
+        n = len(self.returns[assets].columns)
+        solution = []
+        
+        with gp.Env(empty=True) as env:
+            env.setParam("OutputFlag", 0)
+            env.setParam("DualReductions", 0)
+            env.setParam("TimeLimit", 2)
+            env.start()
+            
+            with gp.Model(env=env, name="portfolio") as model:
+            
+                w = model.addMVar(len(assets), name='w',lb = -0.5, ub=1)
+                d = model.addVar(lb = -1000,ub = 1000)
+                i = model.addVar(lb = -1000, ub = 1000)
+                u = model.addVar(lb = 0, ub = 1000)
+                
+                model.addConstr(u == w @ mu)
+                model.addConstr(d * i == 1)
+                model.addConstr(d * d == w @ Sigma @ w)
+                
+                model.setObjective(u * i, gp.GRB.MAXIMIZE)
 
+                model.optimize()
+                
+                
+                for i in range(n):
+                    var = model.getVarByName(f"w[{i}]")
+                    print(f"w {i} = {var.X}")
+                    solution.append(var.X)
+
+        for i in range(len(self.portfolio_weights)):
+            self.portfolio_weights.iloc[i][assets] = solution
+        
         """
         TODO: Complete Task 4 Above
         """
 
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
+        
+        print(self.portfolio_weights)
+        
 
     def calculate_portfolio_returns(self):
         # Ensure weights are calculated
